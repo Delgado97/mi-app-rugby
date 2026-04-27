@@ -4,116 +4,97 @@ import time
 from datetime import datetime
 from io import BytesIO
 from openpyxl import Workbook
+import streamlit.components.v1 as components
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Rugby Analysis Pro", layout="wide")
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="Rugby Keyboard Pro", layout="wide")
 
-# --- ESTILO PERSONALIZADO ---
-st.markdown("""
-    <style>
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; font-weight: bold; }
-    .crono-text { font-size: 50px !important; font-weight: bold; text-align: center; color: #ff4b4b; }
-    .jugador-text { font-size: 30px !important; text-align: center; background-color: #262730; border-radius: 10px; padding: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- TRUCO DE TECLADO (JavaScript) ---
+# Este script detecta la tecla y hace clic en el botón invisible correspondiente
+components.html(
+    """
+    <script>
+    const doc = window.parent.document;
+    doc.addEventListener('keydown', function(e) {
+        const key = e.key.toLowerCase();
+        // Mapeo de teclas a ID de botones (los crearemos abajo)
+        const keyMap = {
+            'q': 'btn_placaje_pos',
+            'w': 'btn_placaje_neg',
+            'a': 'btn_avant',
+            's': 'btn_ensayo_juego',
+            'p': 'btn_penal',
+            'l': 'btn_line_ganado',
+            'k': 'btn_line_perdido'
+        };
+        
+        if (keyMap[key]) {
+            const btn = doc.getElementById(keyMap[key]);
+            if (btn) btn.click();
+        }
+    });
+    </script>
+    """,
+    height=0,
+)
 
-# --- INICIALIZACIÓN DE ESTADO ---
-if 'eventos' not in st.session_state:
-    st.session_state.eventos = []
-if 'tiempo_inicio' not in st.session_state:
-    st.session_state.tiempo_inicio = 0
-if 'corriendo' not in st.session_state:
-    st.session_state.corriendo = False
-if 'jugador_actual' not in st.session_state:
-    st.session_state.jugador_actual = ""
+# --- ESTADO DE SESIÓN ---
+if 'eventos' not in st.session_state: st.session_state.eventos = []
+if 'jugador_actual' not in st.session_state: st.session_state.jugador_actual = ""
 
-# --- FUNCIONES DE LÓGICA ---
 def agregar_evento(tipo, jugador=None):
-    tiempo = int(st.session_state.tiempo_inicio) # Simplificado para el ejemplo
-    nuevo_evento = {
-        "tiempo": time.strftime('%M:%S', time.gmtime(st.session_state.tiempo_inicio)),
+    nuevo = {
+        "hora": datetime.now().strftime('%H:%M:%S'),
         "tipo": tipo,
         "jugador": jugador if jugador else "Equipo"
     }
-    st.session_state.eventos.append(nuevo_evento)
-
-def generar_excel():
-    output = BytesIO()
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Análisis de Partido"
-    
-    # Encabezados
-    ws.append(["Tiempo", "Evento", "Jugador"])
-    for e in st.session_state.eventos:
-        ws.append([e['tiempo'], e['tipo'], e['jugador']])
-        
-    wb.save(output)
-    return output.getvalue()
+    st.session_state.eventos.append(nuevo)
 
 # --- INTERFAZ ---
-st.title("🏉 Panel de Análisis de Rugby")
+st.title("🏉 Rugby Analysis - Keyboard Mode")
 
-col_info, col_controles, col_historial = st.columns([1, 2, 1])
+# Instrucciones de teclas para que no se te olviden
+st.info("⌨️ **Atajos:** Q: Placaje+ | W: Placaje- | A: Avant | S: Ensayo | L: Line+ | K: Line- | P: Penal")
 
-with col_info:
-    st.subheader("⏱️ Tiempo y Jugador")
-    
-    # Simulación de cronómetro (Streamlit refresca la página, para un crono real 1:1 se usa un componente JS, pero esto es funcional)
-    st.markdown(f'<p class="crono-text">{time.strftime("%M:%S", time.gmtime(st.session_state.tiempo_inicio))}</p>', unsafe_allow_html=True)
-    
-    if st.button("▶️ Iniciar / Pausar"):
-        st.session_state.corriendo = not st.session_state.corriendo
-        # Aquí podrías añadir lógica de tiempo real con un loop, pero para análisis manual basta con marcar el punto
-    
-    if st.button("🔄 Reset"):
-        st.session_state.tiempo_inicio = 0
-        st.session_state.eventos = []
+col_main, col_hist = st.columns([2, 1])
 
-    st.markdown("---")
-    st.session_state.jugador_actual = st.text_input("Dorsal Jugador:", value=st.session_state.jugador_actual)
-    st.markdown(f'<p class="jugador-text">JUGADOR: {st.session_state.jugador_actual if st.session_state.jugador_actual else "-"}</p>', unsafe_allow_html=True)
-
-with col_controles:
-    st.subheader("⚡ Acciones Rápidas")
+with col_main:
+    # Input de jugador (se mantiene igual)
+    st.session_state.jugador_actual = st.text_input("Dorsal Jugador (escríbelo y déjalo ahí):", value=st.session_state.jugador_actual)
     
+    st.subheader("Acciones (Puedes usar teclado o clic)")
     c1, c2, c3 = st.columns(3)
-    with c1:
-        if st.button("✅ Placaje Pos"): agregar_evento("placaje_positivo", st.session_state.jugador_actual)
-        if st.button("❌ Placaje Neg"): agregar_evento("placaje_negativo", st.session_state.jugador_actual)
-        if st.button("💨 Avant"): agregar_evento("avant", st.session_state.jugador_actual)
     
+    # Creamos los botones con una "ayuda" de HTML para que el JavaScript los encuentre por ID
+    with c1:
+        if st.button("✅ Placaje Pos (Q)", key="btn_placaje_pos"): 
+            agregar_evento("Placaje +", st.session_state.jugador_actual)
+        if st.button("❌ Placaje Neg (W)", key="btn_placaje_neg"): 
+            agregar_evento("Placaje -", st.session_state.jugador_actual)
+            
     with c2:
-        if st.button("🏉 Ensayo Juego"): agregar_evento("ensayo_juego", st.session_state.jugador_actual)
-        if st.button("🏗️ Ensayo Maul"): agregar_evento("ensayo_maul")
-        if st.button("⚠️ Penal"): agregar_evento("penal", st.session_state.jugador_actual)
+        if st.button("💨 Avant (A)", key="btn_avant"): 
+            agregar_evento("Avant", st.session_state.jugador_actual)
+        if st.button("🏉 Ensayo (S)", key="btn_ensayo_juego"): 
+            agregar_evento("Ensayo", st.session_state.jugador_actual)
 
     with c3:
-        if st.button("🚀 Accion Pos"): agregar_evento("accion_positiva", st.session_state.jugador_actual)
-        if st.button("🔻 Accion Neg"): agregar_evento("accion_negativa", st.session_state.jugador_actual)
-        if st.button("🧹 Borrar Jugador"): st.session_state.jugador_actual = ""
+        if st.button("⚠️ Penal (P)", key="btn_penal"): 
+            agregar_evento("Penal", st.session_state.jugador_actual)
+        if st.button("🟢 Line Ganado (L)", key="btn_line_ganado"): 
+            agregar_evento("Line Ganado")
+        if st.button("🔴 Line Perdido (K)", key="btn_line_perdido"): 
+            agregar_evento("Line Perdido")
 
-    st.subheader("🏟️ Formaciones Fijas")
-    f1, f2 = st.columns(2)
-    with f1:
-        if st.button("🟢 Scrum Ganado"): agregar_evento("scrum_ganado")
-        if st.button("🔴 Scrum Perdido"): agregar_evento("scrum_perdido")
-    with f2:
-        if st.button("🟢 Lineout Ganado"): agregar_evento("lineout_ganado")
-        if st.button("🔴 Lineout Perdido"): agregar_evento("lineout_perdido")
-
-with col_historial:
+with col_hist:
     st.subheader("📋 Historial")
     if st.session_state.eventos:
-        df = pd.DataFrame(st.session_state.eventos).iloc[::-1] # Ver últimos primero
+        df = pd.DataFrame(st.session_state.eventos).iloc[::-1]
         st.table(df)
         
-        excel_data = generar_excel()
-        st.download_button(
-            label="📥 Descargar Excel",
-            data=excel_data,
-            file_name=f"Analisis_Rugby_{datetime.now().strftime('%H%M%S')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        # Botón de reset
+        if st.button("Limpiar Todo"):
+            st.session_state.eventos = []
+            st.rerun()
     else:
-        st.info("No hay eventos registrados aún.")
+        st.write("Esperando acciones...")
